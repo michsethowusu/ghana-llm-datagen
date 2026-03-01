@@ -24,7 +24,7 @@ pip install -r requirements.txt
 python run.py --code YOUR_VOLUNTEER_CODE
 ```
 
-> Your volunteer code is sent to you by the project owner. It looks like a long string of letters and numbers.
+> Your volunteer code is sent to you by the project owner.
 
 **That's it.** The script will:
 - ⬇️ Download your portion of the dataset automatically
@@ -53,10 +53,10 @@ When the run finishes, it will print submission instructions. You'll [open a Git
 ## ❓ FAQ
 
 **Q: How long will it take?**  
-Typically 6–16 hours depending on batch size. You can leave it running overnight.
+Typically 15–60 hours depending on the api server speed. You can leave it running overnight.
 
 **Q: Is the code safe? Is it an API key?**  
-Your code is a volunteer-specific token that encodes your batch assignment and a temporary API key. Don't share it with others.
+Your code is a volunteer-specific token that encodes your batch assignment and a temporary API key.
 
 **Q: Can I run on a server / VM / cloud?**  
 Yes! Any machine with Python 3.10+ and internet access works.
