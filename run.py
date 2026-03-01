@@ -1,7 +1,7 @@
 """
-Ghana LLM Dataset Generator — Volunteer Entry Point
+Ghana LLM Dataset Generator
 =====================================================
-One command. Runs your assigned news slice, then research slice, back to back.
+One command. Runs your assigned news data slice, then research data slice, back to back.
 
 Usage:
     python run.py --code YOUR_VOLUNTEER_CODE
@@ -47,7 +47,7 @@ import openai
 
 # ── Config — owner updates these before pushing ───────────────────────────────
 
-GITHUB_REPO        = "GhanaNLP/ghana-llm-datagen"
+GITHUB_REPO        = "YOUR_USERNAME/ghana-llm-datagen"
 RELEASE_TAG        = "v1.0-data"
 NEWS_FILENAME      = "news_data.csv"
 RESEARCH_FILENAME  = "research_data.csv"
@@ -56,7 +56,6 @@ RESEARCH_FILENAME  = "research_data.csv"
 
 NVIDIA_BASE_URL   = "https://integrate.api.nvidia.com/v1"
 NVIDIA_MODEL      = "meta/llama-3.1-70b-instruct"
-RETRY_ATTEMPTS    = 4
 RETRY_DELAY       = 8
 MAX_CONTENT_CHARS = 3500
 PAGES_PER_CHUNK   = 2
@@ -122,7 +121,11 @@ def make_client(api_key: str):
 
 
 def call_api(client, prompt: str):
-    for attempt in range(RETRY_ATTEMPTS):
+    """Retries indefinitely on network/server errors with capped exponential backoff.
+    Only gives up if the error is non-retriable (e.g. bad request / auth failure)."""
+    NON_RETRIABLE = (400, 401, 403)  # bad request or auth — retrying won't help
+    attempt = 0
+    while True:
         try:
             resp = client.chat.completions.create(
                 model=NVIDIA_MODEL,
@@ -131,12 +134,19 @@ def call_api(client, prompt: str):
                 max_tokens=2048,
             )
             return resp.choices[0].message.content.strip()
+        except openai.APIStatusError as e:
+            if e.status_code in NON_RETRIABLE:
+                tqdm.write(f"  ✖  Non-retriable error ({e.status_code}): {e.message}. Skipping chunk.")
+                return None
+            wait = min(RETRY_DELAY * (2 ** attempt), 120)  # cap at 2 minutes
+            attempt += 1
+            tqdm.write(f"  ⚠️  API error ({e.status_code}) — attempt {attempt}. Retrying in {wait}s...")
+            time.sleep(wait)
         except Exception as e:
-            wait = RETRY_DELAY * (attempt + 1)
-            tqdm.write(f"  ⚠️  Attempt {attempt+1} failed: {e}. Retrying in {wait}s...")
-            if attempt < RETRY_ATTEMPTS - 1:
-                time.sleep(wait)
-    return None
+            wait = min(RETRY_DELAY * (2 ** attempt), 120)
+            attempt += 1
+            tqdm.write(f"  ⚠️  Error: {e} — attempt {attempt}. Retrying in {wait}s...")
+            time.sleep(wait)
 
 
 # ── Chunk builders ────────────────────────────────────────────────────────────
