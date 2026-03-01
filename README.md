@@ -47,7 +47,7 @@ When the run finishes, it will print submission instructions. You'll [open a Git
 ## ❓ FAQ
 
 **Q: How long will it take?**  
-Typically 15–60 hours depending on the api server speed. You can leave it running overnight.
+Typically 60–100 hours depending on the api server speed. You can stop and resume the run with progress preserved.
 
 **Q: Is the code safe? Is it an API key?**  
 Your code is a volunteer-specific token that encodes your batch assignment and a temporary API key.
