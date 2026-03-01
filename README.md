@@ -1,6 +1,6 @@
 # Ghana LLM Data Generator
 
-We're generating a high-quality Ghanaian conversational AI dataset from news articles and research papers. Volunteers run API calls on their machines for ~24 hours using a code we provide.
+We're generating a high-quality Ghanaian conversational AI dataset from news articles and research papers.
 
 **No coding experience needed. One command does everything.**
 
