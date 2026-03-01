@@ -1,0 +1,22 @@
+# Never commit these
+volunteer_codes.json
+*.env
+.env
+
+# Batch files (too large for git — use GitHub Releases)
+batch_files/
+batches/
+
+# Results (submitted via issues)
+results/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
