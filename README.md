@@ -6,7 +6,7 @@ We're generating a high-quality Ghanaian conversational AI dataset from news art
 
 ---
 
-## ⚡ Quick Start (Volunteers)
+## ⚡ Quick Start
 
 ### 1. Clone the repo
 ```bash
