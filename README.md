@@ -42,6 +42,8 @@ It resumes exactly where it left off. Nothing is lost.
 
 When the run finishes, it will print submission instructions. You'll [open a GitHub issue](../../issues/new?template=result_submission.md) and attach your `.jsonl` results file.
 
+We have a dahsboard to track progress [here](https://huggingface.co/spaces/ghananlpcommunity/ghana-llm-datagen-tracker). 
+
 ---
 
 ## ❓ FAQ
