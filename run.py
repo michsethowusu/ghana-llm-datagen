@@ -379,7 +379,6 @@ def zip_output(jsonl_path: Path) -> Path:
 
 # ── Run one data type ─────────────────────────────────────────────────────────
 
-# How often to push a progress event (every N chunks processed)
 LOG_EVERY_N_CHUNKS = 10
 
 def run_type(data_type: str, row_start: int, row_end: int,
@@ -405,7 +404,6 @@ def run_type(data_type: str, row_start: int, row_end: int,
         print(f"  ✅  {data_type.upper()} already complete!\n")
         return 0, 0
 
-    # Log that this volunteer is starting (or resuming) this data type
     already_done = len(completed)
     logger.log_start(data_type, total_chunks=len(chunks))
 
@@ -440,23 +438,64 @@ def run_type(data_type: str, row_start: int, row_end: int,
                 out_f.flush()
                 tqdm.write("  ⚠️   Raw output saved (parse failed)")
 
-            # Occasional progress push (rate-limited inside logger)
             if (chunk_idx + 1) % LOG_EVERY_N_CHUNKS == 0:
                 done_so_far = already_done + chunk_idx + 1
                 logger.log_progress(
                     data_type,
                     done=done_so_far,
                     total=len(chunks),
-                    good=already_done + good_this_run,  # rough — good in all runs combined
+                    good=already_done + good_this_run,
                 )
 
     lines = [json.loads(l) for l in open(output_path) if l.strip()]
     good  = sum(1 for l in lines if not l.get("parse_error"))
 
-    # Final done event for this type
     logger.log_done(data_type, total=len(lines), good=good)
 
     return len(lines), good
+
+
+# ── Sync local output files to gist at startup ────────────────────────────────
+
+def sync_local_to_gist(output_path: Path, data_type: str, info: dict,
+                        logger: ProgressLogger):
+    """Read the local output file (if it exists) and push an accurate
+    done/progress event to the gist before the run starts.
+    This means volunteers who ran before logging was set up, or who are
+    resuming, don't need manual injection — true state is self-reported."""
+    if not output_path.exists():
+        return
+
+    # Count completed chunks from local output file
+    completed = load_completed(output_path)
+    if not completed:
+        return
+
+    lines = [json.loads(l) for l in open(output_path) if l.strip()]
+    good  = sum(1 for l in lines if not l.get("parse_error"))
+
+    # Load CSV slice to know the total chunk count for this volunteer
+    csv_path = get_csv(data_type)
+    key      = "news" if data_type == "news" else "res"
+    df = pd.read_csv(
+        csv_path,
+        skiprows=range(1, info[f"{key}_start"] + 1),
+        nrows=info[f"{key}_end"] - info[f"{key}_start"],
+    ).reset_index(drop=True)
+    chunks      = build_news_chunks(df, info[f"{key}_start"]) if data_type == "news" \
+                  else build_research_chunks(df, info[f"{key}_start"])
+    grand_total = len(chunks)
+    done_count  = len(completed)
+
+    if done_count >= grand_total:
+        print(f"  📂  Syncing completed {data_type} run to gist ({done_count:,} chunks)...")
+        logger.force_push({"event": "done", "type": data_type,
+                           "total": done_count, "good": good})
+    else:
+        print(f"  📂  Syncing partial {data_type} progress to gist "
+              f"({done_count:,}/{grand_total:,} chunks)...")
+        logger.force_push({"event": "progress", "type": data_type,
+                           "done": done_count, "total": grand_total, "good": good})
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -469,8 +508,8 @@ def main():
 
     info = decode_code(args.code)
 
-    news_label = f"news_{info['news_start']}_{info['news_end']}"
-    res_label  = f"research_{info['res_start']}_{info['res_end']}"
+    news_label  = f"news_{info['news_start']}_{info['news_end']}"
+    res_label   = f"research_{info['res_start']}_{info['res_end']}"
     output_path = Path(args.output or f"results/volunteer_{news_label}.jsonl")
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -478,7 +517,6 @@ def main():
     res_count  = info['res_end']  - info['res_start']
     est_hours  = (news_count + res_count) * 8 / 3600
 
-    # Build logger — silently skip if gist not configured yet
     gist_configured = (
         PROGRESS_GIST_ID != "YOUR_GIST_ID_HERE" and
         _TOK_A           != "YOUR_FIRST_HALF"
@@ -503,13 +541,19 @@ def main():
 ╚══════════════════════════════════════════════════════╝
 """)
 
-    client           = make_client(info["api_key"])
+    client            = make_client(info["api_key"])
     ultrachat_samples = load_ultrachat_samples()
 
-    # ── Run news, then research ────────────────────────────────────────────
-    news_out  = output_path.parent / f"{news_label}.jsonl"
-    res_out   = output_path.parent / f"{res_label}.jsonl"
+    news_out = output_path.parent / f"{news_label}.jsonl"
+    res_out  = output_path.parent / f"{res_label}.jsonl"
 
+    # ── Sync any locally-completed work to gist before starting ───────────
+    if gist_configured:
+        print("\n🔄  Syncing local progress to gist...")
+        sync_local_to_gist(news_out, "news",     info, logger)
+        sync_local_to_gist(res_out,  "research", info, logger)
+
+    # ── Run news, then research ────────────────────────────────────────────
     run_type("news",     info["news_start"], info["news_end"], client, news_out, ultrachat_samples, logger)
     news_zip = zip_output(news_out)
     run_type("research", info["res_start"],  info["res_end"],  client, res_out,  ultrachat_samples, logger)
